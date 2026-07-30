@@ -97,6 +97,7 @@
     .card:nth-child(1) { animation-delay: 0.1s; }
     .card:nth-child(2) { animation-delay: 0.25s; }
     .card:nth-child(3) { animation-delay: 0.4s; }
+    .card:nth-child(4) { animation-delay: 0.55s; }
 
     .card-title {
       font-size: 1.1rem;
@@ -147,6 +148,51 @@
       font-style: italic;
       color: var(--text-secondary);
       font-size: 0.92rem;
+    }
+
+    /* ---- timeline ---- */
+    .timeline {
+      position: relative;
+      padding-left: 1.8rem;
+      margin-top: 0.5rem;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 8px; top: 8px; bottom: 8px;
+      width: 2px;
+      background: var(--border);
+      border-radius: 1px;
+    }
+    .tl-item {
+      position: relative;
+      padding: 0 0 1.2rem 0.2rem;
+      animation: fadeUp 0.5s ease-out;
+      animation-fill-mode: both;
+    }
+    .tl-item:last-child { padding-bottom: 0; }
+    .tl-item::before {
+      content: '';
+      position: absolute;
+      left: -1.75rem; top: 4px;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: var(--card);
+      border: 2.5px solid var(--accent);
+      z-index: 1;
+    }
+    .tl-item .day {
+      font-weight: 700;
+      font-size: 0.85rem;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+    .tl-item .desc {
+      font-size: 0.9rem;
+      color: var(--text);
+      margin-top: 0.15rem;
     }
 
     /* ---- footer ---- */
@@ -202,6 +248,29 @@
       <blockquote>
         「种一棵树最好的时间是十年前，其次是现在。」
       </blockquote>
+    </section>
+
+    <section class="card">
+      <div class="card-title">🏕️ 暑期营记录</div>
+      <p>交大学森暑期营 · RISC-V 板子上的一周</p>
+      <div class="timeline">
+        <div class="tl-item" style="animation-delay:0.1s;">
+          <div class="day">📟 第一天</div>
+          <div class="desc">连上板子，学 Linux 命令行、SSH、文件操作</div>
+        </div>
+        <div class="tl-item" style="animation-delay:0.2s;">
+          <div class="day">🤖 第二天</div>
+          <div class="desc">给板子装上 AI 智能体，学会怎么跟它交互</div>
+        </div>
+        <div class="tl-item" style="animation-delay:0.3s;">
+          <div class="day">🧬 第三天</div>
+          <div class="desc">让 AI 写了一个 PCR 模拟器，从零搭出完整动力学模型</div>
+        </div>
+        <div class="tl-item" style="animation-delay:0.4s;">
+          <div class="day">🌐 第四天</div>
+          <div class="desc">把这个个人主页做好、推到 GitHub Pages 上线</div>
+        </div>
+      </div>
     </section>
 
     <footer>
