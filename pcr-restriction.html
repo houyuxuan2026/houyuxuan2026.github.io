@@ -1,0 +1,1687 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PCR 完整模拟 · 底物限制 & 链长分布（科学计数法）</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f2f5; color: #1a1a2e;
+      min-height: 100vh; padding: 2rem 1rem;
+    }
+    .container { max-width: 1060px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 1.8rem; margin-bottom: 0.3rem; letter-spacing: 1px; }
+    .subtitle { text-align: center; color: #666; margin-bottom: 2rem; font-size: 0.9rem; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 1.5rem;
+      margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
+    textarea {
+      width: 100%; min-height: 100px; padding: 0.8rem;
+      font-family: "Courier New", monospace; font-size: 1rem;
+      border: 2px solid #d9d9d9; border-radius: 8px; resize: vertical;
+      transition: border-color 0.2s;
+    }
+    textarea:focus { outline: none; border-color: #4361ee; }
+    .info-row {
+      display: flex; flex-wrap: wrap; gap: 1rem;
+      margin-top: 0.8rem; align-items: center;
+    }
+    .info-row span { font-size: 0.85rem; color: #666; }
+    .info-row .stat { background: #eef0ff; padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 600; color: #4361ee; }
+    .btn {
+      padding: 0.6rem 1.8rem; border: none; border-radius: 8px;
+      font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-primary { background: #4361ee; color: #fff; }
+    .btn-primary:hover { background: #3451d1; }
+    .btn-secondary { background: #e8e8e8; color: #333; }
+    .btn-secondary:hover { background: #d0d0d0; }
+    .flex-row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; }
+    .params-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    .param-item label { font-size: 0.8rem; margin-bottom: 0.2rem; }
+    .param-item input, .param-item select {
+      width: 100%; padding: 0.5rem;
+      border: 2px solid #d9d9d9; border-radius: 6px; font-size: 0.95rem;
+    }
+    .param-item input:focus { outline: none; border-color: #4361ee; }
+    .section-title {
+      font-size: 1rem; font-weight: 700; margin-bottom: 0.8rem;
+      color: #333; border-bottom: 2px solid #eef0ff; padding-bottom: 0.4rem;
+    }
+    .error-msg {
+      background: #f8d7da; color: #721c24;
+      padding: 0.8rem; border-radius: 8px; margin-top: 0.8rem; display: none; font-size: 0.9rem;
+    }
+    .error-msg.show { display: block; }
+
+    .primer-box {
+      border: 2px solid #e0e0e0; border-radius: 10px;
+      padding: 1rem; margin-bottom: 1rem; position: relative;
+    }
+    .primer-box.fwd { border-left: 4px solid #e63946; }
+    .primer-box.rev { border-left: 4px solid #457b9d; }
+    .primer-label { font-weight: 700; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; }
+    .primer-label.fwd { color: #e63946; }
+    .primer-label.rev { color: #457b9d; }
+    .primer-seq {
+      font-family: "Courier New", monospace; font-size: 1.1rem;
+      word-break: break-all; line-height: 1.6;
+      padding: 0.5rem; background: #fafafa; border-radius: 6px;
+    }
+    .primer-meta {
+      display: flex; flex-wrap: wrap; gap: 1rem;
+      font-size: 0.8rem; color: #888; margin-top: 0.5rem;
+    }
+    .badge {
+      display: inline-block; font-size: 0.7rem; padding: 0.15rem 0.5rem;
+      border-radius: 4px; margin-left: 0.5rem;
+    }
+    .badge.ok { background: #d4edda; color: #155724; }
+    .badge.warn { background: #fff3cd; color: #856404; }
+    .badge.bad { background: #f8d7da; color: #721c24; }
+
+    .viz-row {
+      display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 0.5rem;
+    }
+    .viz-col { flex: 1; min-width: 300px; }
+    .gel-canvas-wrap {
+      background: #1a1a2e; border-radius: 10px;
+      padding: 0.5rem; display: inline-block;
+    }
+    .gel-canvas-wrap canvas { display: block; }
+
+    .resource-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 0.8rem;
+    }
+    .resource-card {
+      border: 1px solid #e0e0e0; border-radius: 10px; padding: 0.8rem;
+      text-align: center;
+    }
+    .resource-card h4 { font-size: 0.75rem; color: #888; margin-bottom: 0.2rem; }
+    .resource-card .val { font-size: 1.1rem; font-weight: 700; }
+    .resource-card .unit { font-size: 0.7rem; color: #999; }
+    .resource-card.ok .val { color: #2a9d8f; }
+    .resource-card.warn .val { color: #e9c46a; }
+    .resource-card.depleted .val { color: #e63946; }
+    .resource-bar-bg {
+      height: 6px; background: #eee; border-radius: 3px; margin-top: 0.3rem; overflow: hidden;
+    }
+    .resource-bar-fill {
+      height: 100%; border-radius: 3px; transition: width 0.3s;
+    }
+
+    .yield-box {
+      background: linear-gradient(135deg, #eef0ff, #f8f9ff);
+      border-radius: 12px; padding: 1rem;
+      display: flex; gap: 1.5rem; flex-wrap: wrap;
+      align-items: center;
+    }
+    .yield-item { text-align: center; flex: 1; min-width: 100px; }
+    .yield-item .big { font-size: 1.5rem; font-weight: 700; color: #4361ee; }
+    .yield-item .small { font-size: 0.75rem; color: #888; }
+    .yield-item.label-top .lbl { font-weight: 600; display: block; }
+
+    .ldist-wrapper { overflow-x: auto; margin-top: 0.5rem; }
+    .ldist-chart { min-width: 500px; position: relative; }
+    .ldist-chart canvas { display: block; }
+
+    .table-wrap { overflow-x: auto; margin-top: 0.5rem; }
+    table {
+      width: 100%; border-collapse: collapse; font-size: 0.82rem;
+    }
+    th {
+      background: #f0f2ff; padding: 0.4rem; text-align: center;
+      font-weight: 600; color: #4361ee; border-bottom: 2px solid #4361ee;
+      white-space: nowrap;
+    }
+    td {
+      padding: 0.4rem; text-align: center; border-bottom: 1px solid #eee;
+      font-family: "Courier New", "Consolas", monospace;
+      font-size: 0.8rem;
+    }
+    tr:hover td { background: #f8f9ff; }
+    .highlight-row td { background: #eef5ff; font-weight: 600; }
+    .depleted-row td { color: #e63946; }
+
+    .note {
+      font-size: 0.8rem; color: #888; margin-top: 0.8rem;
+      border-top: 1px solid #eee; padding-top: 0.8rem;
+    }
+    .note code { background: #f0f0f0; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.75rem; }
+
+    /* === Restriction Enzyme Styles === */
+    .re-card { background: #fff; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .re-enzyme-list { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .re-enzyme-tag {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding: 0.3rem 0.7rem; border-radius: 6px;
+      font-size: 0.8rem; font-weight: 600;
+      border: 2px solid #e63946; color: #e63946; background: #fff5f5;
+    }
+    .re-enzyme-tag .cut { font-family: 'Courier New', monospace; font-size: 0.75rem; color: #c1121f; }
+    .re-enzyme-tag .side { font-size: 0.65rem; color: #888; }
+    .re-seq-view {
+      font-family: 'Courier New', monospace; font-size: 0.9rem;
+      word-break: break-all; line-height: 2; padding: 0.8rem;
+      background: #fafafa; border: 1px solid #e0e0e0; border-radius: 8px;
+      margin-top: 0.5rem;
+    }
+    .re-seq-view .target-highlight {
+      background: #c8e6c9; color: #2e7d32; font-weight: 700;
+      padding: 0.15rem 0.3rem; border-radius: 3px;
+    }
+    .re-seq-view .re-site {
+      background: #ffcdd2; color: #c62828; font-weight: 700;
+      padding: 0.15rem 0.3rem; border-radius: 3px;
+      position: relative;
+    }
+    .re-seq-view .re-site::after {
+      content: '↓'; color: #e53935; font-weight: 900;
+      font-size: 0.9rem; margin-left: 1px;
+    }
+    .re-info-table { width: 100%; border-collapse: collapse; margin-top: 0.8rem; font-size: 0.82rem; }
+    .re-info-table th { background: #fff0f0; padding: 0.4rem; text-align: center; font-weight: 600; color: #c62828; border-bottom: 2px solid #e53935; }
+    .re-info-table td { padding: 0.4rem; text-align: center; border-bottom: 1px solid #eee; font-family: 'Courier New', monospace; font-size: 0.8rem; }
+    .re-info-table tr:hover td { background: #fff5f5; }
+    .re-info-table .side-tag { display: inline-block; font-size: 0.7rem; padding: 0.1rem 0.4rem; border-radius: 3px; font-weight: 600; }
+    .re-info-table .side-tag.up { background: #e3f2fd; color: #1565c0; }
+    .re-info-table .side-tag.down { background: #fce4ec; color: #c62828; }
+    .re-seq-canvas-wrap {
+      background: #fafafa; border: 1px solid #e0e0e0; border-radius: 10px;
+      padding: 0.5rem; display: inline-block; width: 100%; overflow-x: auto;
+    }
+    .re-seq-canvas-wrap canvas { display: block; margin: 0 auto; }
+
+    .tab-bar {
+      display: flex; gap: 0; margin-bottom: 1rem; border-bottom: 2px solid #e0e0e0;
+    }
+    .tab {
+      padding: 0.5rem 1rem; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+      border: none; background: none; color: #888; border-bottom: 2px solid transparent;
+      margin-bottom: -2px; transition: all 0.2s;
+    }
+    .tab:hover { color: #4361ee; }
+    .tab.active { color: #4361ee; border-bottom-color: #4361ee; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>🧬 PCR 完整模拟 · 底物限制 &amp; 链长分布</h1>
+  <p class="subtitle">模拟 dNTP / 引物消耗 · 科学计数法精确显示</p>
+
+  <!-- Input -->
+  <div class="card">
+    <label for="dna">DNA 序列（5' → 3'）</label>
+    <textarea id="dna" placeholder="ATGCGTACGATCGATCGATCGATCGTAGCTAGCTAGCTAGCTAGCTAGCTAGC"></textarea>
+    <div class="info-row">
+      <span>长度：<span class="stat" id="seqLen">0</span> bp</span>
+      <span>GC 含量：<span class="stat" id="gcPct">0</span>%</span>
+    </div>
+  </div>
+
+  <!-- Target Gene (目的基因) -->
+  <div class="card">
+    <label for="targetGene">🎯 目的基因（可选）</label>
+    <textarea id="targetGene" placeholder="输入目的基因的 DNA 序列（A,T,C,G），系统将检测其两侧的限制性内切酶识别位点"></textarea>
+    <div class="info-row">
+      <span>长度：<span class="stat" id="tgLen">0</span> bp</span>
+      <span>GC 含量：<span class="stat" id="tgGC">0</span>%</span>
+    </div>
+    <div class="flex-row" style="margin-top:0.8rem;">
+      <button class="btn btn-primary" id="detectREBtn">🔬 检测两侧酶切位点</button>
+    </div>
+    <div class="error-msg" id="tgErrorMsg"></div>
+  </div>
+
+  <!-- PCR Parameters -->
+  <div class="card">
+    <div class="section-title">🧪 反应参数</div>
+    <div class="params-grid">
+      <div class="param-item">
+        <label>引物长度 (bp) [18–24]</label>
+        <input type="number" id="primerLen" value="20" min="18" max="24" step="1">
+      </div>
+      <div class="param-item">
+        <label>最大循环数 N_max [1–40]</label>
+        <input type="number" id="cycles" value="30" min="1" max="40" step="1">
+      </div>
+      <div class="param-item">
+        <label>反应体积 V (μL) [20–50]</label>
+        <input type="number" id="volume" value="25" min="20" max="50">
+      </div>
+      <div class="param-item">
+        <label>初始模板拷贝数 N₀ [10²–10⁸]</label>
+        <input type="number" id="N0" value="1000" min="100" max="100000000" step="1">
+      </div>
+      <div class="param-item">
+        <label>引物浓度 P₀ (μM) [0.05–1.0]</label>
+        <input type="number" id="primerConc" value="0.2" min="0.05" max="1.0" step="0.05">
+      </div>
+      <div class="param-item">
+        <label>dNTP 各 (μM) [0–400]</label>
+        <input type="number" id="dntpConc" value="200" min="0" max="400">
+      </div>
+      <div class="param-item">
+        <label>Mg²⁺ 浓度 (mM) [0–4]</label>
+        <input type="number" id="mgConc" value="1.5" min="0" max="4" step="0.1">
+      </div>
+      <div class="param-item">
+        <label>目标产物长度 L (kb) [0.1–10]</label>
+        <input type="number" id="targetLen" value="1.0" min="0.1" max="10" step="0.1">
+      </div>
+      <div class="param-item">
+        <label>延伸时间 t_ext (s) [0–300]</label>
+        <input type="number" id="extTime" value="60" min="0" max="300">
+      </div>
+      <div class="param-item">
+        <label>变性时间 t_den (s) [20–80]</label>
+        <input type="number" id="denatureTime" value="30" min="20" max="80">
+      </div>
+      <div class="param-item">
+        <label>DNA 聚合酶</label>
+        <select id="polType">
+          <option value="Taq">Taq</option>
+          <option value="Phusion">Phusion</option>
+        </select>
+      </div>
+    </div>
+    <div class="flex-row" style="margin-top:1rem;">
+      <button class="btn btn-primary" id="runBtn">🔬 运行完整模拟</button>
+      <button class="btn btn-secondary" id="exampleBtn">📋 加载示例</button>
+    </div>
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <!-- Results -->
+  <div id="results" style="display:none;">
+
+    <!-- Tab Navigation -->
+    <div class="card" style="padding:0.8rem 1.5rem;">
+      <div class="tab-bar">
+        <button class="tab active" data-tab="tabP">引物</button>
+        <button class="tab" data-tab="tabG">凝胶 &amp; GC</button>
+        <button class="tab" data-tab="tabR">资源 &amp; 产量</button>
+        <button class="tab" data-tab="tabL">链长分布</button>
+        <button class="tab" data-tab="tabT">循环明细</button>
+      </div>
+    </div>
+
+    <!-- Tab: Primers -->
+    <div class="card tab-content active" id="tabP">
+      <div class="section-title">📋 引物设计</div>
+      <div class="primer-box fwd">
+        <div class="primer-label fwd">Forward Primer <span class="badge" id="fwdBadge"></span></div>
+        <div class="primer-seq" id="fwdSeq">—</div>
+        <div class="primer-meta">
+          <span id="fwdLen">长度：—</span>
+          <span id="fwdGC">GC%：—</span>
+          <span id="fwdTm">Tm：—</span>
+          <span id="fwdPos">位置：—</span>
+        </div>
+      </div>
+      <div class="primer-box rev">
+        <div class="primer-label rev">Reverse Primer <span class="badge" id="revBadge"></span></div>
+        <div class="primer-seq" id="revSeq">—</div>
+        <div class="primer-meta">
+          <span id="revLen">长度：—</span>
+          <span id="revGC">GC%：—</span>
+          <span id="revTm">Tm：—</span>
+          <span id="revPos">位置：—</span>
+        </div>
+      </div>
+      <div class="note" id="tmNote"></div>
+    </div>
+
+    <!-- Tab: Gel & GC -->
+    <div class="card tab-content" id="tabG">
+      <div class="section-title">🧪 凝胶电泳 &amp; GC 含量</div>
+      <div class="viz-row">
+        <div class="viz-col">
+          <label style="font-size:0.85rem;">模拟凝胶</label>
+          <div class="gel-canvas-wrap">
+            <canvas id="gelCanvas" width="320" height="400"></canvas>
+          </div>
+          <div style="font-size:0.8rem;color:#888;margin-top:0.3rem;">
+            <span id="prodLen">产物长度：—</span> ·
+            <span id="prodGC">GC%：—</span>
+            <span id="truncBands" style="margin-left:0.5rem;"></span>
+          </div>
+        </div>
+        <div class="viz-col">
+          <label style="font-size:0.85rem;">GC 含量分布</label>
+          <canvas id="gcCanvas" width="500" height="200"></canvas>
+          <div class="gc-stats" style="display:flex;gap:0.8rem;flex-wrap:wrap;margin-top:0.3rem;font-size:0.8rem;">
+            <span>平均 <strong id="gcAvg">—</strong></span>
+            <span>最高 <strong id="gcMax">—</strong></span>
+            <span>最低 <strong id="gcMin">—</strong></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Resources & Yield -->
+    <div class="card tab-content" id="tabR">
+      <div class="section-title">📊 资源消耗 &amp; 扩增产量</div>
+
+      <!-- Resource Status -->
+      <div class="resource-grid" id="resourceGrid">
+        <div class="resource-card" id="rcTemplate">
+          <h4>🧬 模板 DNA</h4>
+          <div class="val">—</div>
+          <div class="unit">拷贝</div>
+          <div class="resource-bar-bg"><div class="resource-bar-fill" style="width:0%;background:#4361ee;"></div></div>
+        </div>
+        <div class="resource-card" id="rcDNTP">
+          <h4>🧪 dNTP</h4>
+          <div class="val">—</div>
+          <div class="unit">剩余 (μM)</div>
+          <div class="resource-bar-bg"><div class="resource-bar-fill" style="width:0%;background:#2a9d8f;"></div></div>
+        </div>
+        <div class="resource-card" id="rcFwd">
+          <h4>→ Fwd 引物</h4>
+          <div class="val">—</div>
+          <div class="unit">消耗 / 总量</div>
+          <div class="resource-bar-bg"><div class="resource-bar-fill" style="width:0%;background:#e63946;"></div></div>
+        </div>
+        <div class="resource-card" id="rcRev">
+          <h4>← Rev 引物</h4>
+          <div class="val">—</div>
+          <div class="unit">消耗 / 总量</div>
+          <div class="resource-bar-bg"><div class="resource-bar-fill" style="width:0%;background:#457b9d;"></div></div>
+        </div>
+        <div class="resource-card" id="rcPol">
+          <h4>🧬 酶活性</h4>
+          <div class="val">—</div>
+          <div class="unit">剩余活性 Aₙ</div>
+          <div class="resource-bar-bg"><div class="resource-bar-fill" style="width:0%;background:#e9c46a;"></div></div>
+        </div>
+      </div>
+
+      <!-- Yield Summary -->
+      <div style="margin-top:1rem;">
+        <div class="yield-box">
+          <div class="yield-item">
+            <span class="big" id="yTotal">—</span>
+            <div class="small">总 dsDNA (拷贝)</div>
+          </div>
+          <div class="yield-item">
+            <span class="big" id="yTarget">—</span>
+            <div class="small">精确目标 (拷贝)</div>
+          </div>
+          <div class="yield-item">
+            <span class="big" id="yPct">—</span>
+            <div class="small">目标占比</div>
+          </div>
+          <div class="yield-item">
+            <span class="big" id="yMass">—</span>
+            <div class="small">产物质量 (ng)</div>
+          </div>
+          <div class="yield-item">
+            <span class="big" id="yLimiting">—</span>
+            <div class="small">限制因素</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note" id="resourceNote">
+        <strong>注：</strong>动力学模型基于酶活性衰减与引物消耗方程。
+        Aₙ = exp(−k_d·t_den·n)，引物剩余比 Rₙ = max(0, 1−2Sₙ/(N_A·V·P₀))。
+        效率 Eₙ < 1% 或 Rₙ = 0 时停止。
+      </div>
+    </div>
+
+    <!-- Tab: Length Distribution -->
+    <div class="card tab-content" id="tabL">
+      <div class="section-title">📏 产物链长分布（第 <span id="ldCycleLabel">0</span> 轮）</div>
+      <div class="ldist-wrapper">
+        <div class="ldist-chart">
+          <canvas id="ldCanvas" width="700" height="300"></canvas>
+        </div>
+      </div>
+      <div style="margin-top:0.8rem;">
+        <table id="ldTable">
+          <thead>
+            <tr><th>链类型</th><th>长度描述</th><th>数量 (单链)</th><th>占比</th><th>颜色</th></tr>
+          </thead>
+          <tbody id="ldTbody"></tbody>
+        </table>
+      </div>
+      <div class="note">
+        <strong>说明：</strong>当 dNTP 或引物不足时，部分链不能完整延伸，产生截短产物。
+        聚合酶：<span id="polNote">—</span>，v₀：<span id="rateNote">—</span>，t_ext：<span id="timeNote">—</span>，最终效率：<span id="capacityNote">—</span>
+      </div>
+    </div>
+
+    <!-- Tab: Cycle Detail -->
+    <div class="card tab-content" id="tabT">
+      <div class="section-title">🔄 各循环详情</div>
+      <div class="table-wrap">
+        <table id="cycleTable">
+          <thead>
+            <tr>
+              <th>轮</th>
+              <th>总 dsDNA</th>
+              <th>新增 dsDNA</th>
+              <th>效率 Eₙ</th>
+              <th>剩余 dNTP (μM)</th>
+              <th>剩余 Fwd</th>
+              <th>剩余 Rev</th>
+              <th>限制因素</th>
+            </tr>
+          </thead>
+          <tbody id="cycleTbody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:1.2rem;">
+        <div class="section-title">📈 目标链扩增曲线</div>
+        <canvas id="cycleChart" width="700" height="300" style="width:100%;max-width:700px;height:auto;background:#fff;border-radius:8px;"></canvas>
+        <div class="note">横轴：循环次数 n &nbsp;·&nbsp; 纵轴：目标 dsDNA 拷贝数（对数坐标）</div>
+      </div>
+    </div>
+  </div>
+  <!-- Restriction Enzyme Analysis Results -->
+  <div id="reResults" style="display:none;">
+    <div class="card">
+      <div class="section-title">🔪 限制性内切核酸酶识别分析</div>
+      
+      <!-- 限制酶检测用途说明 -->
+      <div style="background:#f0f7ff;border:1px solid #d0e4ff;border-radius:10px;padding:0.8rem 1rem;margin-bottom:1rem;font-size:0.82rem;line-height:1.6;">
+        <div style="font-weight:700;color:#1565c0;margin-bottom:0.3rem;">🎯 限制性内切核酸酶切割位点检测的用处</div>
+        <ul style="margin:0;padding-left:1.2rem;color:#333;">
+          <li><strong>基因亚克隆（Subcloning）</strong>——选择合适的限制性内切酶，将目的基因从 PCR 产物或供体质粒切下，插入到表达载体或多克隆位点（MCS）中。</li>
+          <li><strong>定向克隆</strong>——使用上下游两个不同的限制性内切酶（如上游 EcoRI + 下游 HindIII），实现目的基因的定向插入，确保插入方向正确。</li>
+          <li><strong>避免基因内部切割</strong>——检测目的基因序列内部是否含有目标酶的识别位点，防止酶切时将目的基因本身切断。</li>
+          <li><strong>载体-插入片段兼容性验证</strong>——检查所选酶的粘性末端是否与载体多克隆位点兼容，以及是否会产生相同的粘性末端便于连接。</li>
+          <li><strong>双酶切方案设计</strong>——确认两个酶在通用缓冲液中的兼容性，评估同一切割条件下能否同时进行双酶切。</li>
+          <li><strong>侧翼序列分析</strong>——在 PCR 引物 5' 端引入人工酶切位点后，通过本工具验证引物以外的侧翼区域是否存在意外的重复酶切位点，避免非特异性切割。</li>
+          <li><strong>限制性片段长度多态性（RFLP）分析</strong>——通过不同酶切位点的存在与否，快速鉴定基因型或突变（如 SNP 引起酶切位点的消失或出现）。</li>
+        </ul>
+        <div style="margin-top:0.3rem;color:#888;font-size:0.78rem;">💡 提示：工具搜索的是主 DNA 序列中目的基因两侧各 200 bp 范围内的所有已知酶切位点。选择合适的酶切位点后，可将识别序列通过引物 5' 端引入 PCR 产物，再用对应的限制性内切酶进行双酶切后连接到载体中。</div>
+      </div>
+
+      <div id="reSummary"></div>
+  <!-- 图片已移除，仅保留表格和序列视图 -->
+      <div id="reTableWrap" style="margin-top:0.8rem;"></div>
+      <div class="re-seq-view" id="reFullView"></div>
+    </div>
+  </div>
+</div>
+<script>
+// ======== 科学计数法工具 ========
+const SUPER = '⁰¹²³⁴⁵⁶⁷⁸⁹⁻';
+function toSuperscript(n) {
+  if (n === 0) return '⁰';
+  const neg = n < 0;
+  let s = Math.abs(n).toString();
+  let r = '';
+  for (const ch of s) r += SUPER[parseInt(ch)];
+  return neg ? '⁻' + r : r;
+}
+function fmtSciStrict(n) {
+  if (n === 0 || !isFinite(n)) return '0';
+  const sign = n < 0 ? '-' : '';
+  n = Math.abs(n);
+  const exp = Math.floor(Math.log10(n));
+  let mantissa = n / Math.pow(10, exp);
+  // Rounding edge case: mantissa rounds up to 10
+  if (mantissa >= 9.9995) {
+    mantissa = 1;
+    exp += 1;
+  }
+  return sign + mantissa.toFixed(2) + '×10' + toSuperscript(exp);
+}
+
+// ======== 碱基工具 ========
+const COMPLEMENT = { 'A':'T','T':'A','C':'G','G':'C' };
+function rc(seq) { return seq.split('').reverse().map(b=>COMPLEMENT[b]||b).join(''); }
+function calcGC(seq) {
+  const u=seq.toUpperCase(); return u.length ? Math.round(((u.match(/[GC]/g)||[]).length/u.length)*1000)/10 : 0;
+}
+function calcTm(seq) {
+  const u=seq.toUpperCase(); let at=0,gc=0;
+  for(const b of u){if(b==='A'||b==='T')at++;else if(b==='C'||b==='G')gc++;}
+  let tm=2*at+4*gc; if(u.length<14)tm-=2; return Math.round(tm*10)/10;
+}
+
+function validateSeq(seq){
+  const u=seq.trim().toUpperCase();
+  if(!u.length) return {valid:false,msg:'请输入 DNA 序列'};
+  if(!/^[ATCG]+$/.test(u)) return {valid:false,msg:'只能包含 A,T,C,G'};
+  if(u.length<20) return {valid:false,msg:`序列太短（${u.length} bp）`};
+  return {valid:true,seq:u};
+}
+
+function findPrimers(seq, plen, gcMin=40, gcMax=60, tmMin=50, tmMax=65){
+  let bf=null, br=null, fs=-1, rs=-1;
+  for(let o=0;o<=Math.min(5,seq.length-plen);o++){
+    const c=seq.substring(o,o+plen), g=calcGC(c), t=calcTm(c);
+    if(g>=gcMin&&g<=gcMax&&t>=tmMin&&t<=tmMax){
+      const s=(100-Math.abs(g-50)*2)*0.3+(100-Math.abs(t-55)*2)*0.4+(100-o*10)*0.3;
+      if(s>fs){fs=s;bf={seq:c,gc:g,tm:t,pos:o+1};}
+    }
+  }
+  if(!bf){const c=seq.substring(0,plen);bf={seq:c,gc:calcGC(c),tm:calcTm(c),pos:1};}
+  const rl=seq.length;
+  for(let o=0;o<=Math.min(5,rl-plen);o++){
+    const st=rl-plen-o; if(st<0)continue;
+    const c=seq.substring(st,st+plen), r=rc(c), g=calcGC(r), t=calcTm(r);
+    if(g>=gcMin&&g<=gcMax&&t>=tmMin&&t<=tmMax){
+      const s=(100-Math.abs(g-50)*2)*0.3+(100-Math.abs(t-55)*2)*0.4+(100-o*10)*0.3;
+      if(s>rs){rs=s;br={seq:r,gc:g,tm:t,pos:st+1};}
+    }
+  }
+  if(!br){const c=seq.substring(rl-plen,rl);const r=rc(c);br={seq:r,gc:calcGC(r),tm:calcTm(r),pos:rl-plen+1};}
+  return {fwd:bf,rev:br};
+}
+function rateP(gc,tm){
+  if(gc>=40&&gc<=60&&tm>=50&&tm<=65) return {text:'合格',cls:'ok'};
+  if(gc>=35&&gc<=65&&tm>=45&&tm<=70) return {text:'一般',cls:'warn'};
+  return {text:'需优化',cls:'bad'};
+}
+
+// ======== Avogadro ========
+const NA = 6.022e23;
+
+// ======== 动力学 PCR 模拟（v2 — 含 Mg²⁺ & dNTP 限制） ========
+// 基于递推方程：
+// N_n = N_{n-1} × [1 + E_act × E_Mg × min(E_dNTP, E_primer) × extTerm]
+// E_act = A_n/(Km+A_n), E_Mg = [Mg²⁺]_free²/([Mg²⁺]_free²+0.8²)
+// E_dNTP = (d_n/d_0)²/((d_n/d_0)²+0.05²), E_primer = R_n²/(R_n²+0.2²)
+// A_n = exp(-k_d·t_den·n),  R_n = max(0, 1-2S_{n-1}/(N_A·V·P₀))
+// d_n = d_0 - S_{n-1}/(N_A·V)  (µM)
+// [Mg²⁺]_free 满足隐式方程：x = Mg_total - d_n·x/(K_d + x), K_d = 50 µM
+function simulateKineticPCR(seq, plen, N_max, V_uL, N_0, P_0_uM, L_kb, t_ext_s, t_den_s, polType, dntp_uM, mg_mM) {
+  // Constants
+  const K_meff = 0.3;
+  const v_0 = polType === 'Phusion' ? 4.0 : 1.0;  // kb/min
+  const k_d = polType === 'Phusion' ? 0.0008 : 0.0012;  // s⁻¹
+  const K_d_Mg = 0.05;  // Mg²⁺-dNTP 解离常数 (mM) = 50 µM
+  const EC50_Mg = 0.8;  // 半效 Mg²⁺ 浓度 (mM)
+  const EC50_dNTP_ratio = 0.05;  // dNTP 半效比例
+  const EC50_primer_ratio = 0.2;  // 引物半效比例
+
+  // Design primers
+  const {fwd, rev} = findPrimers(seq, plen);
+  const prodStart = fwd.pos;
+  const prodEnd = rev.pos + rev.seq.length - 1;
+  const prodLen = prodEnd - prodStart + 1;
+  const templateLen = seq.length;
+
+  // Conversions
+  const V_L = V_uL / 1e6;
+  const P_0_M = P_0_uM * 1e-6;
+  const totalPrimers = NA * V_L * P_0_M;
+  const t_ext_min = t_ext_s / 60;
+  const d_0_uM = dntp_uM;  // initial dNTP concentration (µM)
+
+  // 计算将 1 分子/µL 转换为 µM 的系数
+  // 1 µM = 1e-6 mol/L = N_A × 1e-6 molecules/L = N_A × 1e-6 × V_L molecules in V_L
+  // So: d_n (µM) = d_0 - S / (N_A × V_L) × 1e6
+
+  const data = [];
+
+  // Initial conditions
+  let N = N_0;       // total copies
+  let S = 0;          // cumulative new strands
+
+  data.push({
+    cycle: 0,
+    totalDNA: N_0,
+    targetDNA: 0,
+    truncated: 0,
+    remFwd: totalPrimers / 2,
+    remRev: totalPrimers / 2,
+    efficiency: 1,
+    A_n: 1,
+    R_n: 1,
+    d_n_uM: d_0_uM,
+    Mg_free_mM: mg_mM,
+    S_n: 0,
+    limiting: '初始'
+  });
+
+  for (let n = 1; n <= N_max; n++) {
+    // Polymerase activity (thermal inactivation)
+    const A_n = Math.exp(-k_d * t_den_s * n);
+    // Remaining primer ratio
+    const R_n = Math.max(0, 1 - 2 * S / totalPrimers);
+    // Remaining dNTP concentration (µM)
+    const d_n_uM = Math.max(0, d_0_uM - S / (NA * V_L) * 1e6);
+    const d_ratio = d_0_uM > 0 ? d_n_uM / d_0_uM : 0;
+
+    // 解 Mg²⁺ 自由浓度隐式方程：x² + (K_d - Mg_total + d_n_mM)·x - Mg_total·K_d = 0
+    const d_n_mM = d_n_uM / 1000;
+    const a = 1;
+    const b = K_d_Mg - mg_mM + d_n_mM;
+    const c = -mg_mM * K_d_Mg;
+    let Mg_free = mg_mM;  // fallback
+    const disc = b * b - 4 * a * c;
+    if (disc >= 0) {
+      Mg_free = (-b + Math.sqrt(disc)) / (2 * a);
+      if (Mg_free < 0 || Mg_free > mg_mM) Mg_free = mg_mM;  // sanity
+    }
+
+    // Efficiency components
+    const actTerm = A_n / (K_meff + A_n);
+    const MgTerm = (Mg_free * Mg_free) / (Mg_free * Mg_free + EC50_Mg * EC50_Mg);
+    const extTerm = Math.min(1.0, (v_0 * A_n * t_ext_min) / (L_kb * (A_n + 0.2)));
+    const E_dNTP = (d_ratio * d_ratio) / (d_ratio * d_ratio + EC50_dNTP_ratio * EC50_dNTP_ratio);
+    const E_primer = (R_n * R_n) / (R_n * R_n + EC50_primer_ratio * EC50_primer_ratio);
+    const E_sub = Math.min(E_dNTP, E_primer);
+    const E_n = actTerm * MgTerm * E_sub * extTerm;
+
+    // Termination checks
+    if (E_n < 0.001) {
+      for (let m = n; m <= N_max; m++) data.push({ cycle: m, totalDNA: N, targetDNA: Math.max(0, N - N_0), truncated: 0, remFwd: (R_n * totalPrimers) / 2, remRev: (R_n * totalPrimers) / 2, efficiency: E_n, A_n: A_n, R_n: R_n, d_n_uM: d_n_uM, Mg_free_mM: Mg_free, S_n: S, limiting: '效率过低（平台期）' });
+      break;
+    }
+    if (d_n_uM <= 0 && E_dNTP < 0.001) {
+      for (let m = n; m <= N_max; m++) data.push({ cycle: m, totalDNA: N, targetDNA: Math.max(0, N - N_0), truncated: 0, remFwd: (R_n * totalPrimers) / 2, remRev: (R_n * totalPrimers) / 2, efficiency: E_n, A_n: A_n, R_n: R_n, d_n_uM: d_n_uM, Mg_free_mM: Mg_free, S_n: S, limiting: 'dNTP 耗尽' });
+      break;
+    }
+    if (R_n <= 0 && E_primer < 0.001) {
+      for (let m = n; m <= N_max; m++) data.push({ cycle: m, totalDNA: N, targetDNA: Math.max(0, N - N_0), truncated: 0, remFwd: 0, remRev: 0, efficiency: E_n, A_n: A_n, R_n: R_n, d_n_uM: d_n_uM, Mg_free_mM: Mg_free, S_n: S, limiting: '引物耗尽' });
+      break;
+    }
+
+    // Amplify
+    const newCopies = N * E_n;
+    N += newCopies;
+    S += newCopies;
+
+    const remPrimers = Math.max(0, (1 - 2 * S / totalPrimers) * totalPrimers);
+    const remEach = remPrimers / 2;
+    const d_n_uM_after = Math.max(0, d_0_uM - S / (NA * V_L) * 1e6);
+
+    let status = '高效扩增';
+    if (E_n < 0.1) status = '低效扩增';
+    if (E_n >= 0.1 && E_n < 0.3) status = '中效扩增';
+    if (A_n < 0.1) status = '聚合酶近失活';
+    if (d_n_uM_after < d_0_uM * 0.1) status = 'dNTP 即将耗尽';
+    if (remEach < totalPrimers * 0.05) status = '引物即将耗尽';
+
+    data.push({
+      cycle: n,
+      totalDNA: Math.round(N),
+      targetDNA: Math.round(N - N_0),
+      truncated: 0,
+      remFwd: Math.round(remEach),
+      remRev: Math.round(remEach),
+      efficiency: E_n,
+      A_n: A_n,
+      R_n: R_n,
+      d_n_uM: d_n_uM_after,
+      Mg_free_mM: Mg_free,
+      S_n: S,
+      limiting: status
+    });
+
+    if (remEach <= 0.1 && E_n < 0.001) {
+      for (let m = n + 1; m <= N_max; m++) data.push({ cycle: m, totalDNA: Math.round(N), targetDNA: Math.round(N - N_0), truncated: 0, remFwd: 0, remRev: 0, efficiency: 0, A_n: A_n, R_n: 0, d_n_uM: d_n_uM_after, Mg_free_mM: Mg_free, S_n: S, limiting: '已停止' });
+      break;
+    }
+  }
+
+  // Fill remaining cycles
+  while (data.length <= N_max) {
+    const last = data[data.length - 1];
+    data.push({ cycle: data.length, totalDNA: last.totalDNA, targetDNA: last.targetDNA, truncated: 0, remFwd: last.remFwd, remRev: last.remRev, efficiency: last.efficiency, A_n: last.A_n, R_n: last.R_n, d_n_uM: last.d_n_uM, Mg_free_mM: last.Mg_free_mM, S_n: last.S_n, limiting: '已停止' });
+  }
+
+  return {
+    data,
+    fwd,
+    rev,
+    prodLen,
+    templateLen,
+    prodStart,
+    prodEnd,
+    templateCopies: N_0,
+    totalPrimers: totalPrimers,
+    d_0_uM: d_0_uM
+  };
+}
+
+// ======== 凝胶绘制 ========
+const MARKER_BP = [20,50,100,200,300,400,500,600,700,800,900,1000,1200,1500,2000,3000];
+const MARKER_LABELS = {20:'20',50:'50',100:'100',200:'200',300:'300',400:'400',500:'500',
+  600:'600',700:'700',800:'800',900:'900',1000:'1k',1200:'1.2k',1500:'1.5k',2000:'2k',3000:'3k'};
+  MARKER_LABELS[20]=20; MARKER_LABELS[50]=50;
+function drawGel(canvas, productBp, bands) {
+  // bands: [{bp, count, color, label}, ...]
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height,mL=45,mR=15,mT=50,mB=25;
+  const gelW=W-mL-mR, gelH=H-mT-mB;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#1a1a2e'; ctx.fillRect(0,0,W,H);
+  const grad=ctx.createLinearGradient(0,mT,0,mT+gelH);
+  grad.addColorStop(0,'#2a2a4e'); grad.addColorStop(1,'#1e1e38');
+  ctx.fillStyle=grad; ctx.fillRect(mL,mT,gelW,gelH);
+  const bpToY=(bp)=>{const lMin=Math.log10(15),lMax=Math.log10(5000);
+    return mT+gelH*(1-(Math.log10(Math.max(bp,15))-lMin)/(lMax-lMin)*0.85-0.05);};
+  const mx=mL+gelW*0.2;
+  ctx.fillStyle='#555'; ctx.font='9px monospace'; ctx.textAlign='center';
+  ctx.fillRect(mx-5,mT-4,10,14); ctx.strokeRect(mx-5,mT-4,10,14);
+  ctx.fillStyle='#aaa'; ctx.fillText('M',mx,mT-10);
+  MARKER_BP.forEach(bp=>{
+    const y=bpToY(bp), bright=[500,1000,1500,2000,3000].includes(bp);
+    ctx.fillStyle='#4361ee';
+    ctx.fillRect(mx-(bright?3:1.5),y-1,bright?6:3,2);
+    ctx.fillStyle=bright?'#88aaff':'#5577bb';
+    ctx.font='8px monospace'; ctx.textAlign='right';
+    ctx.fillText(MARKER_LABELS[bp],mx-6,y+3);
+  });
+  // === Draw sample-lane bands ===
+  const sx=mL+gelW*0.65;
+  const sw=gelW*0.25; // sample lane width
+
+  if (!bands || bands.length === 0) {
+    // Fallback: draw target product band only
+    const sy=bpToY(productBp);
+    ctx.fillStyle='#ff6b6b';
+    ctx.fillRect(sx,sy-1,sw,2);
+    ctx.font='9px monospace'; ctx.textAlign='left';
+    ctx.fillText(productBp>=1000?(productBp/1000).toFixed(1)+'k':productBp+'bp',sx+sw+3,sy+3);
+  } else {
+    // Find max count for scaling band brightness
+    const maxCount = Math.max(...bands.map(b=>b.count), 1);
+    const bandLabels = [];
+    bands.forEach(band => {
+      if (band.count <= 0) return;
+      const sy=bpToY(band.bp);
+      const intensity = Math.max(0.15, Math.min(1, band.count / maxCount));
+      const bandH = Math.max(1, Math.min(6, 2 + intensity * 4));
+      // Glow — 解析颜色，支持 hex 和 rgba
+      let r=255,g=107,bv=107, baseAlpha=0.5;
+      const col = band.color || '#ff6b6b';
+      if (col.startsWith('#')) {
+        let hex = col.replace('#','');
+        if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+        r=parseInt(hex.substring(0,2),16);
+        g=parseInt(hex.substring(2,4),16);
+        bv=parseInt(hex.substring(4,6),16);
+      } else if (col.startsWith('rgba')) {
+        const m2 = col.match(/[\d.]+/g);
+        if(m2){r=+m2[0];g=+m2[1];bv=+m2[2];baseAlpha=m2[3]?+m2[3]:0.5;}
+      } else if (col.startsWith('rgb')) {
+        const m2 = col.match(/[\d.]+/g);
+        if(m2){r=+m2[0];g=+m2[1];bv=+m2[2];}
+      }
+      const glow=ctx.createRadialGradient(sx+sw/2,sy,0,sx+sw/2,sy,10);
+      glow.addColorStop(0,`rgba(${r},${g},${bv},${baseAlpha * intensity})`);
+      glow.addColorStop(1,`rgba(${r},${g},${bv},0)`);
+      ctx.fillStyle=glow;
+      ctx.fillRect(sx-4,sy-10,sw+8,20);
+      // Band bar
+      ctx.fillStyle=band.color||'#ff6b6b';
+      ctx.fillRect(sx,sy-bandH/2,sw,bandH);
+      bandLabels.push({bp:band.bp, y:sy, count:band.count, label:band.label});
+    });
+    // Draw labels on the right, offset to prevent overlap
+    bandLabels.sort((a,b)=>a.y-b.y);
+    const usedY = [];
+    bandLabels.forEach(b => {
+      let labelY = b.y;
+      // Check for overlapping labels
+      for (let tries = 0; tries < 5; tries++) {
+        const overlap = usedY.some(uy => Math.abs(uy - labelY) < 14);
+        if (!overlap) break;
+        labelY += (tries % 2 === 0 ? 1 : -1) * (Math.floor(tries/2)+1) * 14;
+      }
+      usedY.push(labelY);
+      ctx.fillStyle='#fff';
+      ctx.font='9px monospace'; ctx.textAlign='left';
+      const bpLabel = b.bp>=1000 ? (b.bp/1000).toFixed(1)+'k' : Math.round(b.bp)+'bp';
+      ctx.fillText(bpLabel, sx+sw+4, labelY+3);
+    });
+  }
+
+  const dy=mT+gelH*0.92;
+  ctx.fillStyle='rgba(255,255,255,0.15)'; ctx.fillRect(sx,dy-1,sw,2);
+  ctx.strokeStyle='#444'; ctx.beginPath(); ctx.moveTo(mL-3,mT); ctx.lineTo(mL-3,mT+gelH); ctx.stroke();
+  ctx.fillStyle='#777'; ctx.font='8px monospace'; ctx.textAlign='right';
+  for(let bp of[20,50,100,300,500,1000,2000,3000]){const y=bpToY(bp);ctx.fillText(bp+'bp',mL-6,y+3);}
+  ctx.fillStyle='#aaa'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('M  S',W/2,16);
+  ctx.fillStyle='#555'; ctx.font='8px sans-serif';
+  ctx.fillText('← 迁移',W/2,H-4);
+}
+
+// ======== GC 直方图 ========
+function drawGC(canvas, seq, winSize){
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height,mL=40,mR=15,mT=15,mB=25;
+  const cw=W-mL-mR,ch=H-mT-mB;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  if(!seq||seq.length<winSize){ctx.fillStyle='#999';ctx.font='12px sans-serif';ctx.textAlign='center';ctx.fillText('序列太短',W/2,H/2);return null;}
+  const wins=[];
+  for(let i=0;i+winSize<=seq.length;i+=Math.floor(winSize/2)){
+    const chunk=seq.substring(i,i+winSize);
+    if(chunk.length<winSize/2)break;
+    wins.push({start:i+1,gc:calcGC(chunk)});
+  }
+  if(!wins.length)return null;
+  const gcs=wins.map(w=>w.gc), maxG=Math.max(...gcs), minG=Math.min(...gcs), avgG=gcs.reduce((a,b)=>a+b,0)/gcs.length;
+  const yMax=Math.min(100,Math.ceil(maxG/10)*10+10), yMin=Math.max(0,Math.floor(minG/10)*10);
+  const barW=Math.max(2,Math.min(10,cw/wins.length*0.65)), gap=cw/wins.length*0.35, totW=barW+gap;
+  ctx.strokeStyle='#ddd'; ctx.lineWidth=1;
+  for(let y=yMin;y<=yMax;y+=10){const yy=mT+ch-(y-yMin)/(yMax-yMin)*ch;
+    ctx.beginPath();ctx.moveTo(mL,yy);ctx.lineTo(W-mR,yy);ctx.stroke();
+    ctx.fillStyle='#999';ctx.font='8px sans-serif';ctx.textAlign='right';ctx.fillText(y+'%',mL-4,yy+3);}
+  wins.forEach((w,i)=>{
+    const x=mL+i*totW+gap/2, frac=(w.gc-yMin)/(yMax-yMin), bh=frac*ch, yBar=mT+ch-bh;
+    let r,g,b;const gc=w.gc;
+    if(gc<50){const t=gc/50;r=Math.round(100*(1-t)+67*t);g=Math.round(200*(1-t)+110*t);b=Math.round(100*(1-t)+227*t);}
+    else{const t=(gc-50)/50;r=Math.round(67*(1-t)+220*t);g=Math.round(110*(1-t)+50*t);b=Math.round(50*(1-t)+50*t);}
+    ctx.fillStyle=`rgb(${r},${g},${b})`; ctx.fillRect(x,yBar,barW,bh);
+    if(i===0){const ay=mT+ch-(avgG-yMin)/(yMax-yMin)*ch;
+      ctx.setLineDash([3,3]);ctx.strokeStyle='#4361ee';ctx.lineWidth=1;
+      ctx.beginPath();ctx.moveTo(mL,ay);ctx.lineTo(W-mR,ay);ctx.stroke();ctx.setLineDash([]);
+      ctx.fillStyle='#4361ee';ctx.font='8px sans-serif';ctx.textAlign='left';
+      ctx.fillText('平均'+avgG.toFixed(1)+'%',W-mR-65,ay-3);}
+  });
+  ctx.fillStyle='#666';ctx.font='8px sans-serif';ctx.textAlign='center';
+  ctx.fillText('位置(bp)',W/2,H-3);
+  return {avg:avgG,max:maxG,min:minG};
+}
+
+// ======== 链长分布图 ========
+const BIN_LABELS = ['引物/极短','<25%','25-50%','50-75%','75-99%','🎯目标链','🧬全长模板'];
+const BIN_COLORS = ['#999','#a8d8ea','#7ec8e3','#4361ee','#e63946','#e63946','#333'];
+
+function drawLengthDist(canvas, dist) {
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height,mL=55,mR=15,mT=25,mB=50;
+  const cw=W-mL-mR,ch=H-mT-mB;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+  const maxVal=Math.max(...dist,1);
+  const binW=cw/dist.length*0.6;
+  const gap=cw/dist.length*0.4;
+  dist.forEach((v,i)=>{
+    const bh=(v/maxVal)*ch, y=mT+ch-bh;
+    const x=mL+i*(binW+gap)+gap/2;
+    ctx.fillStyle=BIN_COLORS[i];
+    ctx.fillRect(x,y,binW,bh);
+    ctx.fillStyle='#333'; ctx.font='8px sans-serif'; ctx.textAlign='center';
+    ctx.save();
+    ctx.translate(x+binW/2, H-8);
+    ctx.rotate(-Math.PI/4);
+    ctx.fillText(BIN_LABELS[i], 0, 0);
+    ctx.restore();
+    // Value on bar
+    if (v > maxVal*0.05) {
+      ctx.fillStyle='#fff'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center';
+      ctx.fillText(fmtSciStrict(v), x+binW/2, y+10);
+    }
+  });
+  ctx.fillStyle='#666'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('链类型', W/2, H-3);
+  ctx.fillStyle='#333'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('产物链长分布', W/2, 14);
+}
+
+// ======== 扩增曲线折线图 ========
+function drawCycleChart(canvas, data) {
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width,H=canvas.height,mL=55,mR=20,mT=30,mB=40;
+  const cw=W-mL-mR,ch=H-mT-mB;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff'; ctx.fillRect(0,0,W,H);
+
+  // Extract valid cycles (skip cycle 0 init)
+  const pts = data.filter(d => d.cycle > 0 && d.targetDNA > 0);
+  if (pts.length < 2) {
+    ctx.fillStyle='#999'; ctx.font='12px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('数据不足，无法绘制扩增曲线', W/2, H/2);
+    return;
+  }
+
+  const maxTarget = Math.max(...pts.map(p=>p.targetDNA));
+  const minTarget = Math.min(...pts.map(p=>p.targetDNA));
+  const maxCycle = Math.max(...pts.map(p=>p.cycle));
+  const minCycle = 1;
+
+  // Log scale for Y axis
+  const logMin = Math.max(0, Math.floor(Math.log10(Math.max(minTarget, 1))));
+  const logMax = Math.ceil(Math.log10(Math.max(maxTarget, 1)));
+  const yLogRange = logMax - logMin;
+
+  function yPos(val) {
+    const lv = Math.log10(Math.max(val, 1));
+    return mT + ch * (1 - (lv - logMin) / Math.max(yLogRange, 1));
+  }
+  function xPos(cycle) {
+    return mL + cw * ((cycle - minCycle) / Math.max(maxCycle - minCycle, 1));
+  }
+
+  // Grid & Y axis labels
+  ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1;
+  for (let ly = logMin; ly <= logMax; ly++) {
+    const y = yPos(Math.pow(10, ly));
+    ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(W-mR,y); ctx.stroke();
+    ctx.fillStyle='#888'; ctx.font='9px sans-serif'; ctx.textAlign='right';
+    ctx.fillText('10' + toSuperscript(ly), mL-4, y+3);
+  }
+
+  // X axis labels (show some cycle numbers)
+  ctx.strokeStyle='#e8e8e8'; ctx.lineWidth=1;
+  const xStep = Math.max(1, Math.floor(maxCycle / 8));
+  for (let c = minCycle; c <= maxCycle; c += xStep) {
+    const x = xPos(c);
+    ctx.beginPath(); ctx.moveTo(x,mT); ctx.lineTo(x,mT+ch); ctx.stroke();
+    ctx.fillStyle='#888'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(c, x, H-10);
+  }
+  // Also show the last cycle
+  if (maxCycle % xStep !== 0) {
+    const x = xPos(maxCycle);
+    ctx.fillStyle='#888'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+    ctx.fillText(maxCycle, x, H-10);
+  }
+
+  // Draw the data line
+  ctx.strokeStyle='#4361ee'; ctx.lineWidth=2;
+  ctx.beginPath();
+  pts.forEach((p, i) => {
+    const x = xPos(p.cycle);
+    const y = yPos(p.targetDNA);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Draw data points
+  ctx.fillStyle='#4361ee';
+  pts.forEach(p => {
+    const x = xPos(p.cycle);
+    const y = yPos(p.targetDNA);
+    ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI*2); ctx.fill();
+  });
+
+  // Highlight plateau/final point
+  const last = pts[pts.length-1];
+  ctx.fillStyle='#e63946';
+  const lx = xPos(last.cycle);
+  const ly = yPos(last.targetDNA);
+  ctx.beginPath(); ctx.arc(lx, ly, 5, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle='#e63946'; ctx.font='bold 9px sans-serif'; ctx.textAlign='left';
+  ctx.fillText(fmtSciStrict(last.targetDNA), lx+8, ly+3);
+
+  // Labels
+  ctx.fillStyle='#333'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('循环次数 n', W/2, H-3);
+  ctx.save();
+  ctx.translate(14, mT+ch/2);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillStyle='#333'; ctx.font='11px sans-serif'; ctx.textAlign='center';
+  ctx.fillText('目标 dsDNA (拷贝)', 0, 0);
+  ctx.restore();
+}
+
+// ======== 输入范围校验 ========
+const RANGES = {
+  primerLen:  { min: 18, max: 24, label: '引物长度 (bp)' },
+  cycles:     { min: 1,  max: 40, label: '循环数 (n)' },
+  volume:     { min: 20, max: 50, label: '反应体积 (μL)' },
+  N0:         { min: 100, max: 100000000, label: '初始模板拷贝数 N₀' },
+  primerConc: { min: 0.05, max: 1.0, label: '引物浓度 P₀ (μM)' },
+  dntpConc:   { min: 0, max: 400, label: 'dNTP 各 (μM)' },
+  mgConc:     { min: 0, max: 4, label: 'Mg²⁺ 浓度 (mM)' },
+  targetLen:  { min: 0.1, max: 10, label: '目标产物长度 L (kb)' },
+  extTime:    { min: 0,  max: 300, label: '延伸时间 (s)' },
+  denatureTime: { min: 20, max: 80, label: '变性时间 (s)' }
+};
+
+function validatePCRInputs() {
+  const errors = [];
+  const INT_IDS = ['primerLen', 'cycles'];
+  for (const [id, range] of Object.entries(RANGES)) {
+    const el = document.getElementById(id);
+    const val = parseFloat(el.value);
+    if (isNaN(val) || val < range.min || val > range.max) {
+      errors.push(`${range.label} 应为 ${range.min}–${range.max}`);
+    } else if (INT_IDS.includes(id) && !Number.isInteger(val)) {
+      errors.push(`${range.label} 必须为整数`);
+    }
+  }
+  return errors;
+}
+
+// ======== 主流程 ========
+function run() {
+  const errEl=document.getElementById('errorMsg');
+  errEl.classList.remove('show');
+  document.getElementById('results').style.display='none';
+
+  try {
+
+  // 校验 PCR 参数范围
+  const inputErrors = validatePCRInputs();
+  if (inputErrors.length > 0) {
+    errEl.innerHTML = '⚠️ 不符合正常PCR投料情况<br>' + inputErrors.join('<br>');
+    errEl.classList.add('show');
+    return;
+  }
+
+  const val=validateSeq(document.getElementById('dna').value);
+  if(!val.valid){errEl.textContent='⚠️ '+val.msg;errEl.classList.add('show');return;}
+  const seq=val.seq;
+  const plen=parseInt(document.getElementById('primerLen').value);
+  const cycles=parseInt(document.getElementById('cycles').value);
+  const vol=parseFloat(document.getElementById('volume').value);
+  const N0=parseInt(document.getElementById('N0').value);
+  const prim=parseFloat(document.getElementById('primerConc').value);
+  const dntpConc=parseFloat(document.getElementById('dntpConc').value);
+  const mgConc=parseFloat(document.getElementById('mgConc').value);
+  const L=parseFloat(document.getElementById('targetLen').value);
+  const ext=parseFloat(document.getElementById('extTime').value);
+  const denatureTime=parseFloat(document.getElementById('denatureTime').value);
+  const polType=document.getElementById('polType').value;
+
+  const sim=simulateKineticPCR(seq, plen, cycles, vol, N0, prim, L, ext, denatureTime, polType, dntpConc, mgConc);
+
+  // ---- Fill Primer Tab ----
+  const fwd=sim.fwd, rev=sim.rev;
+  document.getElementById('fwdSeq').textContent=`5'-${fwd.seq}-3'`;
+  document.getElementById('fwdLen').textContent=`长度：${fwd.seq.length} bp`;
+  document.getElementById('fwdGC').textContent=`GC%：${fwd.gc}%`;
+  document.getElementById('fwdTm').textContent=`Tm：${fwd.tm}°C`;
+  document.getElementById('fwdPos').textContent=`位置：${fwd.pos}–${fwd.pos+fwd.seq.length-1}`;
+  const fr=rateP(fwd.gc,fwd.tm);
+  document.getElementById('fwdBadge').textContent=fr.text;
+  document.getElementById('fwdBadge').className='badge '+fr.cls;
+  document.getElementById('revSeq').textContent=`5'-${rev.seq}-3'`;
+  document.getElementById('revLen').textContent=`长度：${rev.seq.length} bp`;
+  document.getElementById('revGC').textContent=`GC%：${rev.gc}%`;
+  document.getElementById('revTm').textContent=`Tm：${rev.tm}°C`;
+  document.getElementById('revPos').textContent=`位置：${rev.pos}–${rev.pos+rev.seq.length-1}`;
+  const rr=rateP(rev.gc,rev.tm);
+  document.getElementById('revBadge').textContent=rr.text;
+  document.getElementById('revBadge').className='badge '+rr.cls;
+  const td=Math.abs(fwd.tm-rev.tm);
+  document.getElementById('tmNote').textContent=td<=3?`✅ Tm 差 ${td}°C（≤3°C），适合 PCR。`: `⚠️ Tm 差 ${td}°C（>3°C），建议调整。`;
+
+  // ---- Fill Gel & GC Tab ----
+  const prodSeq=seq.substring(sim.prodStart-1, sim.prodEnd);
+  const gelBands = [];
+  // Target band (all products are full-length)
+  const lastData = sim.data[sim.data.length-1];
+  if (lastData.totalDNA > 0) {
+    gelBands.push({bp: sim.prodLen, count: lastData.totalDNA, color: '#ff6b6b', label: '目标'});
+  }
+  // Full template band
+  gelBands.push({bp: sim.templateLen, count: sim.templateCopies, color: '#888', label: '全长'});
+  drawGel(document.getElementById('gelCanvas'), sim.prodLen, gelBands);
+  document.getElementById('truncBands').textContent = '';
+  document.getElementById('prodLen').textContent=`产物：${sim.prodLen} bp`;
+  document.getElementById('prodGC').textContent=`GC%：${calcGC(prodSeq)}%`;
+  const gcStats=drawGC(document.getElementById('gcCanvas'), prodSeq, Math.max(10,Math.min(50,Math.round(sim.prodLen/20))));
+  if(gcStats){document.getElementById('gcAvg').textContent=gcStats.avg.toFixed(1)+'%';
+    document.getElementById('gcMax').textContent=gcStats.max.toFixed(1)+'%';
+    document.getElementById('gcMin').textContent=gcStats.min.toFixed(1)+'%';}
+
+  // ---- Fill Resources Tab ----
+  const last=sim.data[sim.data.length-1];
+  document.getElementById('yTotal').textContent=fmtSciStrict(last.totalDNA);
+  document.getElementById('yTarget').textContent=fmtSciStrict(last.targetDNA);
+  const pct=last.totalDNA>0?(last.targetDNA/last.totalDNA*100):0;
+  document.getElementById('yPct').textContent=pct>=99.9?'>99.9%':pct.toFixed(1)+'%';
+  const mass=(last.totalDNA * sim.prodLen * 660) / NA * 1e9;
+  document.getElementById('yMass').textContent=mass>0.01?mass.toFixed(2)+' ng':'<0.01 ng';
+  document.getElementById('yLimiting').textContent=last.limiting;
+
+  // Resource cards
+  const primUsed = sim.totalPrimers - last.remFwd * 2;
+  const primPct = sim.totalPrimers > 0 ? primUsed / sim.totalPrimers * 100 : 0;
+  document.querySelector('#rcTemplate .val').textContent=fmtSciStrict(sim.templateCopies);
+  document.querySelector('#rcTemplate .resource-bar-fill').style.width='100%';
+  document.querySelector('#rcDNTP .val').textContent=last.d_n_uM !== undefined ? last.d_n_uM.toFixed(2)+' μM' : '—';
+  const d_consumed_pct = sim.d_0_uM > 0 ? (1 - last.d_n_uM / sim.d_0_uM) * 100 : 0;
+  document.querySelector('#rcDNTP .resource-bar-fill').style.width=Math.min(100,Math.max(0,d_consumed_pct))+'%';
+  document.querySelector('#rcDNTP .resource-bar-fill').style.background=d_consumed_pct>95?'#e63946':d_consumed_pct>75?'#e9c46a':'#2a9d8f';
+  document.querySelector('#rcFwd .val').textContent=`${fmtSciStrict(primUsed)} / ${fmtSciStrict(sim.totalPrimers)}`;
+  document.querySelector('#rcFwd .resource-bar-fill').style.width=Math.min(100,primPct)+'%';
+  document.querySelector('#rcFwd .resource-bar-fill').style.background=primPct>95?'#e63946':primPct>75?'#e9c46a':'#2a9d8f';
+  document.querySelector('#rcRev .val').textContent=`${fmtSciStrict(primUsed)} / ${fmtSciStrict(sim.totalPrimers)}`;
+  document.querySelector('#rcRev .resource-bar-fill').style.width=Math.min(100,primPct)+'%';
+  document.querySelector('#rcRev .resource-bar-fill').style.background=primPct>95?'#e63946':primPct>75?'#e9c46a':'#2a9d8f';
+  document.querySelector('#rcPol .val').textContent=(last.A_n*100).toFixed(2)+'%';
+  document.querySelector('#rcPol .resource-bar-fill').style.width=Math.min(100,last.A_n*100)+'%';
+  document.querySelector('#rcPol .resource-bar-fill').style.background=last.A_n<0.1?'#e63946':last.A_n<0.5?'#e9c46a':'#2a9d8f';
+
+  // ---- Fill Length Distribution Tab ----
+  document.getElementById('ldCycleLabel').textContent=cycles;
+  // 新模型无截短链，显示目标产物总量
+  const ldDist = new Array(7).fill(0);
+  ldDist[5] = lastData.totalDNA;  // 目标产物位置
+  drawLengthDist(document.getElementById('ldCanvas'), ldDist);
+  const tbody=document.getElementById('ldTbody'); tbody.innerHTML='';
+  const tr2=document.createElement('tr');
+  tr2.innerHTML=`<td>🎯 目标产物</td><td>${sim.prodLen} bp</td><td>${fmtSciStrict(lastData.totalDNA)}</td><td>100%</td><td><span style="display:inline-block;width:14px;height:14px;border-radius:3px;background:#e63946;vertical-align:middle;"></span></td>`;
+  tbody.appendChild(tr2);
+  const v_0_label = polType === 'Phusion' ? '4.0' : '1.0';
+  document.getElementById('polNote').textContent=polType;
+  document.getElementById('rateNote').textContent=v_0_label + ' kb/min';
+  document.getElementById('timeNote').textContent=ext + 's';
+  document.getElementById('capacityNote').textContent='E_final='+(lastData.efficiency*100).toFixed(2)+'%';
+
+  // ---- Fill Cycle Detail Tab ----
+  const ctb=document.getElementById('cycleTbody'); ctb.innerHTML='';
+  sim.data.forEach((d,i)=>{
+    const tr=document.createElement('tr');
+    if(i===sim.data.length-1) tr.className='highlight-row';
+    if(d.limiting.includes('耗尽')||d.limiting.includes('停止')) tr.className+=' depleted-row';
+    tr.innerHTML=`<td>${d.cycle}</td><td>${fmtSciStrict(d.totalDNA)}</td>
+      <td>${fmtSciStrict(d.targetDNA)}</td><td>${(d.efficiency*100).toFixed(2)+'%'}</td>
+      <td>${d.d_n_uM !== undefined ? d.d_n_uM.toFixed(2) : '—'}</td><td>${fmtSciStrict(d.remFwd)}</td>
+      <td>${fmtSciStrict(d.remRev)}</td><td style="color:${d.limiting.includes('耗尽')?'#e63946':d.limiting.includes('高效')?'#2a9d8f':'#856404'}">${d.limiting}</td>`;
+    ctb.appendChild(tr);
+  });
+
+  // ---- Draw Cycle Chart ----
+  drawCycleChart(document.getElementById('cycleChart'), sim.data);
+
+  document.getElementById('results').style.display='block';
+  } catch(e) {
+    errEl.innerHTML = '⚠️ 运行时出错: ' + e.message + '<br><small>' + e.stack.substring(0,300) + '</small>';
+    errEl.classList.add('show');
+    console.error(e);
+  }
+}
+
+// ======== Tab switching ========
+document.querySelectorAll('.tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ======== 统计更新 ========
+function updateStats(){
+  const v=document.getElementById('dna').value.trim().toUpperCase();
+  const len=v.replace(/[^ATCG]/g,'').length;
+  const gc=v.replace(/[^GC]/g,'').length;
+  document.getElementById('seqLen').textContent=len;
+  document.getElementById('gcPct').textContent=len?Math.round(gc/len*1000)/10:0;
+}
+
+function loadExample(){
+  // 设置符合PCR正常投料范围的示例参数
+  document.getElementById('primerLen').value=20;
+  document.getElementById('cycles').value=30;
+  document.getElementById('volume').value=25;
+  document.getElementById('N0').value=1000;
+  document.getElementById('primerConc').value=0.2;
+  document.getElementById('dntpConc').value=200;
+  document.getElementById('mgConc').value=1.5;
+  document.getElementById('targetLen').value=1.0;
+  document.getElementById('extTime').value=60;
+  document.getElementById('denatureTime').value=30;
+  document.getElementById('polType').value='Taq';
+  // 主序列：上游120bp含EcoRI位点 + 目的基因150bp + 下游120bp含HindIII位点
+  // 上游序列包含 EcoRI (GAATTC) 在 bp 48-53
+  const upstream = 'ACGTACGATCGCGGATCCACGTAGCGCGATCGATCGACTAGCTAGCGATCGATCGATCGAATTCGATCGATCGTAGCTAGCTAGCTAGCATGCGATCGTAGCTAG';
+  // 目的基因
+  const targetGene = 'ATGCGATCGTAGCTAGCTAGCTAGCGATCGATCGATCGATCGTACGATCGTAGCTAGCATGATCGATCGATCGTAGCTAGCTAGCTAGCATGCGATCGTAGCTAGCGATCGATCGATCGATCGTACGATCGTGCTAG';
+  // 下游序列包含 HindIII (AAGCTT) 在 bp 50-55 (相对于下游起始)
+  const downstream = 'CTAGCATGCGATCGTAGCTAGCTAGCTAGCGATCGATCGATCGATCGTACGATCGAAGCTTGTAGCTAGCATGATCGATCGATCGTAGCTAGCTAGCATGCGATC';
+  document.getElementById('dna').value = upstream + targetGene + downstream;
+  // 设置目的基因为目标子序列
+  document.getElementById('targetGene').value = targetGene;
+  updateStats(); updateTargetGeneStats();
+}
+
+// ======== 限制性内切核酸酶数据库 ========
+const RESTRICTION_ENZYMES = [
+  // 6碱基识别
+  { name: 'EcoRI',  seq: 'GAATTC', side: '5\'', cutMark: 'G^AATTC' },
+  { name: 'HindIII', seq: 'AAGCTT', side: '5\'', cutMark: 'A^AGCTT' },
+  { name: 'BamHI',  seq: 'GGATCC', side: '5\'', cutMark: 'G^GATCC' },
+  { name: 'NotI',   seq: 'GCGGCCGC', side: '5\'', cutMark: 'GC^GGCCGC' },
+  { name: 'XhoI',   seq: 'CTCGAG', side: '5\'', cutMark: 'C^TCGAG' },
+  { name: 'SalI',   seq: 'GTCGAC', side: '5\'', cutMark: 'G^TCGAC' },
+  { name: 'PstI',   seq: 'CTGCAG', side: '3\'', cutMark: 'CTGCA^G' },
+  { name: 'SacI',   seq: 'GAGCTC', side: '5\'', cutMark: 'G^AGCTC' },
+  { name: 'KpnI',   seq: 'GGTACC', side: '3\'', cutMark: 'GGTAC^C' },
+  { name: 'SmaI',   seq: 'CCCGGG', side: '5\'', cutMark: 'CCC^GGG' },
+  { name: 'XbaI',   seq: 'TCTAGA', side: '5\'', cutMark: 'T^CTAGA' },
+  { name: 'SpeI',   seq: 'ACTAGT', side: '5\'', cutMark: 'A^CTAGT' },
+  { name: 'BglII',  seq: 'AGATCT', side: '5\'', cutMark: 'A^GATCT' },
+  { name: 'NdeI',   seq: 'CATATG', side: '5\'', cutMark: 'CA^TATG' },
+  { name: 'NcoI',   seq: 'CCATGG', side: '5\'', cutMark: 'C^CATGG' },
+  { name: 'EcoRV',  seq: 'GATATC', side: '3\'', cutMark: 'GAT^ATC' },
+  { name: 'PvuII',  seq: 'CAGCTG', side: '3\'', cutMark: 'CAG^CTG' },
+  { name: 'ScaI',   seq: 'AGTACT', side: '3\'', cutMark: 'AGT^ACT' },
+  { name: 'SphI',   seq: 'GCATGC', side: '3\'', cutMark: 'GCATG^C' },
+  { name: 'ApaI',   seq: 'GGGCCC', side: '3\'', cutMark: 'GGGCC^C' },
+  { name: 'MluI',   seq: 'ACGCGT', side: '5\'', cutMark: 'A^CGCGT' },
+  { name: 'NheI',   seq: 'GCTAGC', side: '5\'', cutMark: 'G^CTAGC' },
+  { name: 'StuI',   seq: 'AGGCCT', side: '3\'', cutMark: 'AGG^CCT' },
+  { name: 'SnaBI',  seq: 'TACGTA', side: '3\'', cutMark: 'TAC^GTA' },
+  { name: 'PmeI',   seq: 'GTTTAAAC', side: '3\'', cutMark: 'GTTT^AAAC' },
+  // 4碱基识别（常用的）
+  { name: 'HaeIII', seq: 'GGCC', side: '3\'', cutMark: 'GG^CC' },
+  { name: 'AluI',   seq: 'AGCT', side: '3\'', cutMark: 'AG^CT' },
+  { name: 'MspI',   seq: 'CCGG', side: '5\'', cutMark: 'C^CGG' },
+  { name: 'TaqI',   seq: 'TCGA', side: '5\'', cutMark: 'T^CGA' },
+];
+
+// ======== 目标基因有效性鉴定 ========
+function validateTargetGene(input) {
+  const trimmed = input.trim();
+  if (!trimmed.length) return { valid: false, errors: [] };
+  
+  const errors = [];
+  const u = trimmed.toUpperCase();
+  
+  // 1. 检查是否包含非 DNA 核苷酸字符
+  const invalidChars = u.split('').filter(ch => !'ATCG'.includes(ch));
+  if (invalidChars.length > 0) {
+    // 检测是否为 RNA (含 U)
+    const hasU = u.includes('U');
+    const uniqueInvalid = [...new Set(invalidChars)];
+    if (hasU && uniqueInvalid.every(ch => ch === 'U')) {
+      errors.push('DNA 序列不应含 U（尿嘧啶）。输入的序列疑似为 RNA，请将 U 替换为 T 后重试。');
+    } else {
+      errors.push('DNA 序列只能包含碱基 A、T、C、G。发现了非法字符: ' + uniqueInvalid.join(', '));
+    }
+  }
+  
+  // 2. 检查长度
+  if (u.replace(/[^ATCG]/g,'').length < 12) {
+    errors.push('目的基因序列过短（至少需要 12 bp 以进行可靠搜索）。');
+  }
+  
+  return { valid: errors.length === 0, errors, seq: u.replace(/[^ATCG]/g,'') };
+}
+
+// ======== 在主序列中搜索目的基因 ========
+function findTargetInMain(targetSeq, mainSeq) {
+  // 直接搜索
+  let pos = mainSeq.indexOf(targetSeq);
+  if (pos !== -1) {
+    return { found: true, start: pos, end: pos + targetSeq.length - 1, strand: '+' };
+  }
+  // 搜索反向互补链
+  const revComp = rc(targetSeq);
+  pos = mainSeq.indexOf(revComp);
+  if (pos !== -1) {
+    return { found: true, start: pos, end: pos + revComp.length - 1, strand: '-' };
+  }
+  return { found: false };
+}
+
+// ======== 搜索侧翼限制性内切酶位点 ========
+function searchRestrictionSites(seq, mainStart, mainEnd, flankLen) {
+  const mainLen = seq.length;
+  
+  // 提取侧翼序列：上游 5' 端和下游 3' 端
+  const upStart = Math.max(0, mainStart - flankLen);
+  const upSeq = seq.substring(upStart, mainStart);
+  const downSeq = seq.substring(mainEnd + 1, Math.min(mainLen, mainEnd + 1 + flankLen));
+  
+  const allSites = [];
+  
+  // 在上游搜索正链
+  for (const enz of RESTRICTION_ENZYMES) {
+    let idx = upSeq.indexOf(enz.seq);
+    while (idx !== -1) {
+      allSites.push({
+        enzyme: enz.name,
+        recSeq: enz.seq,
+        cutMark: enz.cutMark,
+        absolutePos: upStart + idx,
+        relativePos: idx - (mainStart - upStart),
+        side: '5\'',
+        strand: '+',
+        distance: mainStart - (upStart + idx + enz.seq.length)
+      });
+      idx = upSeq.indexOf(enz.seq, idx + 1);
+    }
+    
+    // 也搜索上游的互补链
+    const upRc = rc(upSeq);
+    let idx2 = upRc.indexOf(enz.seq);
+    while (idx2 !== -1) {
+      // 互补链上的识别位点对应原序列上的对应位置
+      const rcPos = upStart + (upRc.length - idx2 - enz.seq.length);
+      allSites.push({
+        enzyme: enz.name,
+        recSeq: enz.seq,
+        cutMark: enz.cutMark,
+        absolutePos: rcPos,
+        relativePos: rcPos - mainStart,
+        side: '5\'',
+        strand: '-',
+        distance: mainStart - (rcPos + enz.seq.length)
+      });
+      idx2 = upRc.indexOf(enz.seq, idx2 + 1);
+    }
+  }
+  
+  // 在下游搜索正链
+  for (const enz of RESTRICTION_ENZYMES) {
+    let idx = downSeq.indexOf(enz.seq);
+    while (idx !== -1) {
+      const absPos = mainEnd + 1 + idx;
+      allSites.push({
+        enzyme: enz.name,
+        recSeq: enz.seq,
+        cutMark: enz.cutMark,
+        absolutePos: absPos,
+        relativePos: absPos - mainStart,
+        side: '3\'',
+        strand: '+',
+        distance: absPos - (mainEnd + 1)
+      });
+      idx = downSeq.indexOf(enz.seq, idx + 1);
+    }
+    
+    // 搜索下游互补链
+    const downRc = rc(downSeq);
+    let idx2 = downRc.indexOf(enz.seq);
+    while (idx2 !== -1) {
+      const absPos = mainEnd + 1 + (downRc.length - idx2 - enz.seq.length);
+      allSites.push({
+        enzyme: enz.name,
+        recSeq: enz.seq,
+        cutMark: enz.cutMark,
+        absolutePos: absPos,
+        relativePos: absPos - mainStart,
+        side: '3\'',
+        strand: '-',
+        distance: absPos - (mainEnd + 1)
+      });
+      idx2 = downRc.indexOf(enz.seq, idx2 + 1);
+    }
+  }
+  
+  return allSites.filter(s => s.distance >= 0).sort((a, b) => a.absolutePos - b.absolutePos);
+}
+
+// ======== 绘制酶切位点图 ========
+// ======== 展开/收起控制 ========
+
+// ======== 展开/收起控制 ========
+function expandTags(btn) {
+  const countText = btn.previousElementSibling;
+  const hiddenSpan = btn.nextElementSibling;
+  if (!hiddenSpan) return;
+  countText.style.display = 'none';
+  btn.style.display = 'none';
+  hiddenSpan.style.display = 'inline';
+  const cb = document.createElement('button');
+  cb.className = 'btn';
+  cb.style.cssText = 'padding:0.2rem 0.6rem;font-size:0.75rem;background:#e0e0e0;color:#333;border:none;border-radius:4px;cursor:pointer;margin-left:0.3rem;';
+  cb.textContent = '收起';
+  cb.onclick = function() {
+    hiddenSpan.style.display = 'none';
+    countText.style.display = 'inline-flex';
+    btn.style.display = 'inline-flex';
+    cb.remove();
+  };
+  hiddenSpan.parentNode.insertBefore(cb, hiddenSpan.nextSibling);
+}
+
+function expandTableRows() {
+  const hiddenBody = document.getElementById('reTableHidden');
+  const expandRow = document.getElementById('reTableExpandRow');
+  if (hiddenBody) hiddenBody.style.display = 'table-row-group';
+  if (expandRow) {
+    expandRow.innerHTML = '<td colspan="7" style="text-align:center;padding:0.6rem;background:#fafafa;">' +
+      '<button class="btn" style="padding:0.3rem 1.2rem;font-size:0.8rem;background:#e0e0e0;color:#333;border:none;border-radius:6px;cursor:pointer;" onclick="collapseTableRows()">收起</button></td>';
+  }
+}
+
+function collapseTableRows() {
+  const hiddenBody = document.getElementById('reTableHidden');
+  const expandRow = document.getElementById('reTableExpandRow');
+  if (hiddenBody) hiddenBody.style.display = 'none';
+  if (expandRow) {
+    expandRow.innerHTML = '<td colspan="7" style="text-align:center;padding:0.6rem;background:#fafafa;">' +
+      '<button class="btn" style="padding:0.3rem 1.2rem;font-size:0.8rem;background:#e0e0e0;color:#333;border:none;border-radius:6px;cursor:pointer;" onclick="expandTableRows()">展开更多</button></td>';
+  }
+}
+
+// ======== 显示酶切分析结果 ========
+function showRestrictionResults(sites, mainSeq, targetStart, targetEnd) {
+  function makeTagHTML(site) {
+    return `<span class="re-enzyme-tag">${site.enzyme} <span class="cut">(${site.cutMark})</span> <span class="side">${site.strand}</span></span>`;
+  }
+  function wrapTags(sitesArr) {
+    const limit = 10;
+    let html = '';
+    const visible = sitesArr.slice(0, limit);
+    visible.forEach(s => { html += makeTagHTML(s); });
+    if (sitesArr.length > limit) {
+      html += `<span style="display:inline-flex;align-items:center;gap:0.3rem;padding:0.3rem 0.7rem;border-radius:6px;font-size:0.8rem;background:#f0f0f0;color:#888;">…还有 ${sitesArr.length - limit} 个位点</span>`;
+      html += ` <button class="btn" style="padding:0.2rem 0.6rem;font-size:0.75rem;background:#e0e0e0;color:#333;border:none;border-radius:4px;cursor:pointer;" onclick="expandTags(this)">展开</button>`;
+      html += `<span style="display:none;">${sitesArr.slice(limit).map(s => makeTagHTML(s)).join('')}</span>`;
+    }
+    return html;
+  }
+
+  const reResults = document.getElementById('reResults');
+  reResults.style.display = 'block';
+  
+  // 摘要
+  const upSites = sites.filter(s => s.side === "5'");
+  const downSites = sites.filter(s => s.side === "3'");
+  const summaryEl = document.getElementById('reSummary');
+  
+  let summaryHTML = '<div class="section-title" style="margin-top:0;border-bottom:none;">📋 检测结果</div>';
+  if (sites.length === 0) {
+    summaryHTML += '<p style="color:#888;">在目的基因两侧的侧翼序列中未发现已知的限制性内切核酸酶识别序列。</p>';
+  } else {
+    summaryHTML += '<div style="display:flex;gap:2rem;flex-wrap:wrap;margin-bottom:0.8rem;">';
+    
+    if (upSites.length > 0) {
+      summaryHTML += '<div>';
+      summaryHTML += '<div style="font-weight:600;color:#1565c0;margin-bottom:0.3rem;">⬆️ 上游 (5\' 侧)</div>';
+      summaryHTML += '<div class="re-enzyme-list" id="reTagsUp">' + wrapTags(upSites) + '</div></div>';
+    }
+    
+    if (downSites.length > 0) {
+      summaryHTML += '<div>';
+      summaryHTML += '<div style="font-weight:600;color:#c62828;margin-bottom:0.3rem;">⬇️ 下游 (3\' 侧)</div>';
+      summaryHTML += '<div class="re-enzyme-list" id="reTagsDown">' + wrapTags(downSites) + '</div></div>';
+    }
+    
+    summaryHTML += '</div>';
+  }
+  summaryEl.innerHTML = summaryHTML;
+  
+  // 绘制示意图
+  // 图片已移除
+  
+  // 酶切位点详细信息表格
+  const tableWrap = document.getElementById('reTableWrap');
+  if (sites.length === 0) {
+    tableWrap.innerHTML = '';
+  } else {
+    const tableLimit = 10;
+    let tableHTML = '<div class="section-title">📊 酶切位点详情</div>';
+    tableHTML += '<table class="re-info-table"><thead><tr>';
+    tableHTML += '<th>酶名称</th><th>识别序列</th><th>酶切位点</th><th>侧翼</th><th>链</th><th>位置 (bp)</th><th>距目的基因 (bp)</th></tr></thead><tbody id="reTableBody">';
+    
+    const visibleSites = sites.slice(0, tableLimit);
+    visibleSites.forEach(site => {
+      const sideLabel = site.side === "5'" ? '<span class="side-tag up">5\' 上游</span>' : '<span class="side-tag down">3\' 下游</span>';
+      tableHTML += `<tr>
+        <td style="font-weight:600;color:#c62828;">${site.enzyme}</td>
+        <td style="color:#333;">5'-${site.recSeq}-3'</td>
+        <td style="color:#c62828;">${site.cutMark}</td>
+        <td>${sideLabel}</td>
+        <td>${site.strand === '+' ? '正链' : '互补链'}</td>
+        <td>${site.absolutePos + 1}</td>
+        <td>${site.distance > 0 ? site.distance + ' bp' : '0 bp'}</td>
+      </tr>`;
+    });
+    
+    if (sites.length > tableLimit) {
+      const hiddenSites = sites.slice(tableLimit);
+      tableHTML += `<tr id="reTableExpandRow"><td colspan="7" style="text-align:center;padding:0.6rem;background:#fafafa;">
+        <button class="btn" style="padding:0.3rem 1.2rem;font-size:0.8rem;background:#e0e0e0;color:#333;border:none;border-radius:6px;cursor:pointer;" onclick="expandTableRows()">展开更多</button>
+      </td></tr>`;
+      // 隐藏行存储为 JSON 字符串，展开时再渲染
+      tableHTML += `<tbody id="reTableHidden" style="display:none;">`;
+      hiddenSites.forEach(site => {
+        const sideLabel = site.side === "5'" ? '<span class="side-tag up">5\' 上游</span>' : '<span class="side-tag down">3\' 下游</span>';
+        tableHTML += `<tr>
+          <td style="font-weight:600;color:#c62828;">${site.enzyme}</td>
+          <td style="color:#333;">5'-${site.recSeq}-3'</td>
+          <td style="color:#c62828;">${site.cutMark}</td>
+          <td>${sideLabel}</td>
+          <td>${site.strand === '+' ? '正链' : '互补链'}</td>
+          <td>${site.absolutePos + 1}</td>
+          <td>${site.distance > 0 ? site.distance + ' bp' : '0 bp'}</td>
+        </tr>`;
+      });
+      tableHTML += '</tbody>';
+    }
+    
+    tableHTML += '</tbody></table>';
+    tableWrap.innerHTML = tableHTML;
+  }
+  
+  // 序列可视化（显示目标基因和酶切位点的文本视图）
+  const displayStart = Math.max(0, targetStart - 100);
+  const displayEnd = Math.min(mainSeq.length - 1, targetEnd + 100);
+  const contextSeq = mainSeq.substring(displayStart, displayEnd + 1);
+  
+  let htmlView = '<div><strong>🔍 序列上下文（含高亮标记）</strong></div>';
+  // 按窗口分批显示
+  const batchSize = 60;
+  for (let i = 0; i < contextSeq.length; i += batchSize) {
+    const batch = contextSeq.substring(i, i + batchSize);
+    let display = '';
+    for (let j = 0; j < batch.length; j++) {
+      const absPos = displayStart + i + j;
+      const char = batch[j];
+      
+      // 检查是否在目标基因内
+      if (absPos >= targetStart && absPos <= targetEnd) {
+        display += '<span class="target-highlight">' + char + '</span>';
+      } else {
+        // 检查是否在某个酶切位点内
+        let inSite = false;
+        for (const site of sites) {
+          if (absPos >= site.absolutePos && absPos < site.absolutePos + site.recSeq.length) {
+            inSite = true;
+            break;
+          }
+        }
+        if (inSite) {
+          display += '<span class="re-site">' + char + '</span>';
+        } else {
+          display += char;
+        }
+      }
+    }
+    htmlView += '<div style="font-family:"Courier New";font-size:0.8rem;line-height:1.8;word-break:break-all;">' + display + '</div>';
+  }
+  
+  htmlView += '<div style="margin-top:0.3rem;font-size:0.75rem;color:#888;">';
+  htmlView += '<span style="display:inline-block;width:12px;height:12px;background:#c8e6c9;border:1px solid #4caf50;vertical-align:middle;margin-right:0.3rem;"></span> 目的基因';
+  htmlView += '&nbsp;&nbsp;<span style="display:inline-block;width:12px;height:12px;background:#ffcdd2;border:1px solid #e53935;vertical-align:middle;margin-right:0.3rem;"></span> 酶切位点';
+  htmlView += '</div>';
+  
+  document.getElementById('reFullView').innerHTML = htmlView;
+}
+
+// ======== 主检测入口 ========
+function detectRestrictionSites() {
+  const errEl = document.getElementById('tgErrorMsg');
+  errEl.classList.remove('show');
+  document.getElementById('reResults').style.display = 'none';
+  
+  // 获取目标基因序列
+  const tgInput = document.getElementById('targetGene').value;
+  const validation = validateTargetGene(tgInput);
+  
+  if (!tgInput.trim().length) {
+    errEl.textContent = '⚠️ 请输入目的基因的 DNA 序列。';
+    errEl.classList.add('show');
+    return;
+  }
+  
+  if (!validation.valid) {
+    errEl.innerHTML = '⚠️ DNA 序列鉴定失败：<br>' + validation.errors.join('<br>');
+    errEl.classList.add('show');
+    return;
+  }
+  
+  const targetSeq = validation.seq;
+  
+  // 获取主序列
+  const mainDNA = document.getElementById('dna').value.trim().toUpperCase().replace(/[^ATCG]/g, '');
+  if (!mainDNA.length) {
+    errEl.textContent = '⚠️ 请先在上方输入主 DNA 序列。';
+    errEl.classList.add('show');
+    return;
+  }
+  
+  if (targetSeq.length > mainDNA.length) {
+    errEl.textContent = '⚠️ 目的基因序列比主 DNA 序列还长，不可能存在。';
+    errEl.classList.add('show');
+    return;
+  }
+  
+  // 在主序列中查找目的基因
+  const findResult = findTargetInMain(targetSeq, mainDNA);
+  
+  if (!findResult.found) {
+    errEl.innerHTML = '⚠️ 在主 DNA 序列中未找到目的基因。<br>' +
+      '（已同时搜索正链 5\'-3\' 和反向互补链 3\'-5\' 方向）<br>' +
+      '请检查输入的目的基因序列是否与主 DNA 序列匹配。';
+    errEl.classList.add('show');
+    return;
+  }
+  
+  // 目的基因找到！搜索侧翼酶切位点
+  const flankLen = 200; // 搜索两侧各 200 bp
+  const sites = searchRestrictionSites(mainDNA, findResult.start, findResult.end, flankLen);
+  
+  // 显示结果
+  showRestrictionResults(sites, mainDNA, findResult.start, findResult.end);
+  
+  // 如果没有找到酶切位点，也显示提示
+  if (sites.length === 0) {
+    const summaryEl = document.getElementById('reSummary');
+    summaryEl.innerHTML = '<div class="section-title" style="margin-top:0;border-bottom:none;">📋 检测结果</div>' +
+      '<p style="color:#888;">在目的基因两侧的侧翼序列（各 ' + flankLen + ' bp）中未发现已知的限制性内切核酸酶识别序列。</p>'; 
+  }
+}
+
+// ======== 目标基因统计更新 ========
+function updateTargetGeneStats() {
+  const v = document.getElementById('targetGene').value.trim().toUpperCase();
+  const dnaChars = v.replace(/[^ATCG]/g, '');
+  const gc = dnaChars.replace(/[^GC]/g, '').length;
+  document.getElementById('tgLen').textContent = dnaChars.length;
+  document.getElementById('tgGC').textContent = dnaChars.length ? Math.round(gc / dnaChars.length * 1000) / 10 : 0;
+}
+
+// ======== 事件绑定 ========
+document.getElementById('runBtn').addEventListener('click', run);
+document.getElementById('exampleBtn').addEventListener('click', loadExample);
+document.getElementById('dna').addEventListener('input', updateStats);
+document.getElementById('detectREBtn').addEventListener('click', detectRestrictionSites);
+document.getElementById('targetGene').addEventListener('input', updateTargetGeneStats);
+</script>
+</body>
+</html>
